@@ -7,6 +7,7 @@ var RestaurantRecord = require('./model').Restaurant;
 var MemoryStorage = require('./storage').Memory;
 
 var API_URL = '/api/menu/:id';
+var API_BASE_URL = '/api/menu';
 
 exports.start = function(PORT, STATIC_DIR, DATA_FILE) {
   var app = express();
@@ -21,15 +22,25 @@ exports.start = function(PORT, STATIC_DIR, DATA_FILE) {
   // parse body into req.body
   app.use(bodyParser.json());
 
-  // set header to prevent cors errors
+  // set header to prevent CORS errors
   app.use(function(_req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'newrelic, tracestate, traceparent'),
+    res.setHeader('Access-Control-Allow-Headers', 'newrelic, tracestate, traceparent');
     next();
   });
 
+  // Root route to confirm service is running
+  app.get('/', function(req, res) {
+    res.send('Menu Service is running');
+  });
 
-  // API
+  // New route to retrieve all menu items
+  app.get(API_BASE_URL, function(req, res) {
+    const allRestaurants = storage.getAll(); // Assuming storage has a `getAll` method
+    res.status(200).send(allRestaurants);
+  });
+
+  // Existing API routes
   app.get(API_URL, function(req, res, _next) {
     var restaurant = storage.getById(req.params.id);
 
@@ -37,9 +48,8 @@ exports.start = function(PORT, STATIC_DIR, DATA_FILE) {
       return res.status(200).send(restaurant);
     }
 
-    return res.status(400).send({error: 'No restaurant with id "' + req.params.id + '"!'});
+    return res.status(400).send({ error: 'No restaurant with id "' + req.params.id + '"!' });
   });
-
 
   app.put(API_URL, function(req, res, _next) {
     var restaurant = storage.getById(req.params.id);
@@ -56,20 +66,18 @@ exports.start = function(PORT, STATIC_DIR, DATA_FILE) {
       return res.status(201).send(restaurant);
     }
 
-    return res.status(400).send({error: errors});
+    return res.status(400).send({ error: errors });
   });
-
 
   app.delete(API_URL, function(req, res, _next) {
     if (storage.deleteById(req.params.id)) {
       return res.status(204).send(null);
     }
 
-    return res.status(400).send({error: 'No restaurant with id "' + req.params.id + '"!'});
+    return res.status(400).send({ error: 'No restaurant with id "' + req.params.id + '"!' });
   });
 
-  // start the server
-  // read the data from json and start the server
+  // Start the server and initialize data
   fs.readFile(DATA_FILE, function(_err, data) {
     JSON.parse(data).forEach(function(restaurant) {
       storage.add(new RestaurantRecord(restaurant));
